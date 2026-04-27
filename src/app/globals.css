@@ -1,0 +1,58 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --brand: #2596be;
+  /* Slight cool tint so surfaces feel tied to #2596BE, not generic gray */
+  --surface: 248 252 254;
+  --surface-elevated: 255 255 255;
+  --ink: 15 23 42;
+  --ink-muted: 100 116 139;
+  --border: 207 232 241;
+  --ring: 37 150 190;
+}
+
+.dark {
+  --surface: 14 18 24;
+  --surface-elevated: 22 28 36;
+  --ink: 248 250 252;
+  --ink-muted: 148 163 184;
+  --border: 40 62 82;
+  --ring: 61 184 224;
+}
+
+html {
+  color-scheme: light;
+}
+
+html.dark {
+  color-scheme: dark;
+}
+
+body {
+  @apply bg-surface text-ink antialiased;
+  transition-property: background-color, color;
+  transition-duration: 0.45s;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .glass {
+    @apply bg-white/70 backdrop-blur-xl dark:bg-slate-900/65 dark:backdrop-blur-2xl;
+  }
+
+  .glass-border {
+    @apply border border-brand/15 shadow-glass dark:border-brand/25 dark:shadow-glass-dark;
+  }
+
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(37, 150, 190, 0.35) transparent;
+  }
+}
+
