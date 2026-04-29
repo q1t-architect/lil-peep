@@ -73,4 +73,8 @@ export const en = {
   },
 } as const;
 
-export type Translations = typeof en;
+type LeafStrings<T> = {
+  readonly [K in keyof T]: T[K] extends string ? string : LeafStrings<T[K]>;
+};
+
+export type Translations = LeafStrings<typeof en>;

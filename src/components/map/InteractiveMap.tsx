@@ -9,6 +9,7 @@ import Map, {
   type MapRef,
   type MapLayerMouseEvent,
 } from "react-map-gl";
+import type { Expression } from "mapbox-gl";
 import type { FeatureCollection } from "geojson";
 import Link from "next/link";
 import type { Listing } from "@/lib/data";
@@ -123,14 +124,14 @@ export function InteractiveMap({ listings, selectedId, onSelect, className }: Pr
   );
 
   // Paint expressions react to selectedId directly — no extra state needed
-  const pinColor = [
+  const pinColor: Expression = [
     "case",
     ["==", ["get", "id"], selectedId ?? "__none__"],
     "#ffffff",
     BRAND,
   ];
 
-  const pinBackground = [
+  const pinBackground: Expression = [
     "case",
     ["==", ["get", "id"], selectedId ?? "__none__"],
     BRAND,
