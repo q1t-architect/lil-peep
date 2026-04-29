@@ -128,14 +128,14 @@ export function InteractiveMap({ listings, selectedId, onSelect, className }: Pr
     ["==", ["get", "id"], selectedId ?? "__none__"],
     "#ffffff",
     BRAND,
-  ] as const;
+  ];
 
   const pinBackground = [
     "case",
     ["==", ["get", "id"], selectedId ?? "__none__"],
     BRAND,
     "#ffffff",
-  ] as const;
+  ];
 
   return (
     <div
