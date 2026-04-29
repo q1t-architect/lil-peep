@@ -2,13 +2,19 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import type { ReactNode } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ThemeToggle } from "@/components/providers/ThemeProvider";
 import { useLocale } from "@/lib/i18n";
+import { useAuth } from "@/components/auth/AuthProvider";
+import { createClient } from "@/lib/supabase/client";
 import { MOCK_NOTIFICATIONS } from "@/lib/data";
 import { cn } from "@/lib/utils";
 import type { Locale } from "@/lib/i18n";
+
+// ---------------------------------------------------------------------------
+// Logo
+// ---------------------------------------------------------------------------
 
 type LogoProps = { className?: string; size?: "sm" | "md" | "lg"; withWordmark?: boolean };
 
@@ -41,11 +47,17 @@ export function Logo({ className, size = "md", withWordmark = true }: LogoProps)
         />
       </span>
       {withWordmark && (
-        <span className={cn("font-display font-semibold tracking-tight text-ink", text)}>Neighborly</span>
+        <span className={cn("font-display font-semibold tracking-tight text-ink", text)}>
+          Neighborly
+        </span>
       )}
     </Link>
   );
 }
+
+// ---------------------------------------------------------------------------
+// LocaleToggle
+// ---------------------------------------------------------------------------
 
 function LocaleToggle() {
   const { locale, setLocale } = useLocale();
@@ -87,9 +99,134 @@ function LocaleToggle() {
   );
 }
 
+// ---------------------------------------------------------------------------
+// UserMenu
+// ---------------------------------------------------------------------------
+
+function initials(name: string): string {
+  return name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((w) => w[0]?.toUpperCase() ?? "")
+    .join("");
+}
+
+function UserMenu() {
+  const { user, profile } = useAuth();
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Close on outside click
+  useEffect(() => {
+    if (!open) return;
+    function onDown(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [open]);
+
+  async function handleSignOut() {
+    setOpen(false);
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push("/");
+    router.refresh();
+  }
+
+  const displayName = profile?.name || user?.email?.split("@")[0] || "You";
+  const avatarUrl = profile?.avatar_url;
+  const label = initials(displayName) || "?";
+
+  return (
+    <div ref={containerRef} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-label="Open user menu"
+        aria-expanded={open}
+        className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full ring-2 ring-brand/30 transition hover:ring-brand/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/50"
+      >
+        {avatarUrl ? (
+          <Image
+            src={avatarUrl}
+            alt={displayName}
+            width={40}
+            height={40}
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          <span className="flex h-full w-full items-center justify-center bg-brand text-[13px] font-bold text-white">
+            {label}
+          </span>
+        )}
+      </button>
+
+      {open && (
+        <div
+          className={cn(
+            "absolute right-0 top-[calc(100%+0.5rem)] z-50 min-w-[11rem] overflow-hidden rounded-2xl",
+            "bg-white/95 shadow-glass-lg ring-1 ring-black/[0.06] backdrop-blur-xl",
+            "dark:bg-slate-900/95 dark:ring-white/10",
+            "animate-slide-up",
+          )}
+        >
+          {/* Identity */}
+          <div className="border-b border-black/[0.06] px-4 py-3 dark:border-white/[0.08]">
+            <p className="truncate text-sm font-semibold text-ink">{displayName}</p>
+            {profile?.neighborhood && (
+              <p className="truncate text-xs text-ink-muted">{profile.neighborhood}</p>
+            )}
+          </div>
+
+          {/* Actions */}
+          <div className="p-1">
+            <Link
+              href="/profile"
+              onClick={() => setOpen(false)}
+              className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium text-ink transition hover:bg-brand/8 dark:hover:bg-brand/15"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" className="h-4 w-4 shrink-0 text-ink-muted" aria-hidden><circle cx="12" cy="8" r="4" /><path strokeLinecap="round" d="M4 20c0-4 3.6-7 8-7s8 3 8 7" /></svg>
+              My Profile
+            </Link>
+            <Link
+              href="/messages"
+              onClick={() => setOpen(false)}
+              className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium text-ink transition hover:bg-brand/8 dark:hover:bg-brand/15"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" className="h-4 w-4 shrink-0 text-ink-muted" aria-hidden><path strokeLinecap="round" strokeLinejoin="round" d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" /></svg>
+              Messages
+            </Link>
+          </div>
+
+          <div className="border-t border-black/[0.06] p-1 dark:border-white/[0.08]">
+            <button
+              type="button"
+              onClick={handleSignOut}
+              className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium text-red-600 transition hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" className="h-4 w-4 shrink-0" aria-hidden><path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v1" /></svg>
+              Log out
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// AppShell
+// ---------------------------------------------------------------------------
+
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { t } = useLocale();
+  const { user, loading } = useAuth();
   const unread = MOCK_NOTIFICATIONS.filter((n) => !n.read).length;
 
   const navLinks = [
@@ -144,12 +281,19 @@ export function AppShell({ children }: { children: ReactNode }) {
             </span>
             <LocaleToggle />
             <ThemeToggle />
-            <Link
-              href="/auth-demo"
-              className="rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white shadow-brand-soft-sm transition hover:bg-brand-dim focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
-            >
-              {t("nav.signIn")}
-            </Link>
+            {/* Auth control — skeleton while loading to prevent layout shift */}
+            {loading ? (
+              <div className="h-10 w-10 animate-pulse rounded-full bg-slate-200 dark:bg-slate-700" />
+            ) : user ? (
+              <UserMenu />
+            ) : (
+              <Link
+                href="/login"
+                className="rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white shadow-brand-soft-sm transition hover:bg-brand-dim focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
+              >
+                {t("nav.signIn")}
+              </Link>
+            )}
           </div>
         </div>
         <div className="border-t border-black/[0.03] px-4 py-2 text-center text-[11px] text-ink-muted lg:hidden dark:border-white/[0.05]">

@@ -3,9 +3,10 @@ import { Inter, Plus_Jakarta_Sans } from "next/font/google";
 import { AppShell } from "@/components/AppShell";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import { LocaleProvider } from "@/components/providers/LocaleProvider";
+import { AuthProvider } from "@/components/auth/AuthProvider";
 import "./globals.css";
 
-/** Inter: neutral UI body (widely used, highly legible). Plus Jakarta Sans: modern product headings — both from Google Fonts, free for commercial use. */
+/** Inter: neutral UI body. Plus Jakarta Sans: modern product headings. */
 const sans = Inter({
   subsets: ["latin"],
   variable: "--font-sans",
@@ -30,7 +31,9 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       <body className={`${sans.variable} ${display.variable} font-sans`}>
         <ThemeProvider>
           <LocaleProvider>
-            <AppShell>{children}</AppShell>
+            <AuthProvider>
+              <AppShell>{children}</AppShell>
+            </AuthProvider>
           </LocaleProvider>
         </ThemeProvider>
       </body>
