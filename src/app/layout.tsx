@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, Plus_Jakarta_Sans } from "next/font/google";
 import { AppShell } from "@/components/AppShell";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
+import { LocaleProvider } from "@/components/providers/LocaleProvider";
 import "./globals.css";
 
 /** Inter: neutral UI body (widely used, highly legible). Plus Jakarta Sans: modern product headings — both from Google Fonts, free for commercial use. */
@@ -28,7 +29,9 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="en" suppressHydrationWarning>
       <body className={`${sans.variable} ${display.variable} font-sans`}>
         <ThemeProvider>
-          <AppShell>{children}</AppShell>
+          <LocaleProvider>
+            <AppShell>{children}</AppShell>
+          </LocaleProvider>
         </ThemeProvider>
       </body>
     </html>

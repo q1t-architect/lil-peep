@@ -1,8 +1,13 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
 import { Logo } from "@/components/AppShell";
+import { useLocale } from "@/lib/i18n";
 
 export default function AuthDemoPage() {
+  const { t } = useLocale();
+
   return (
     <div className="relative min-h-[calc(100vh-8rem)] overflow-hidden px-4 py-16 sm:px-6">
       <div className="pointer-events-none absolute inset-0 bg-hero-mesh opacity-70 dark:opacity-40" />
@@ -15,15 +20,12 @@ export default function AuthDemoPage() {
             <Logo size="lg" />
           </div>
           <h1 className="font-display text-4xl font-semibold tracking-tight text-ink sm:text-5xl">
-            Welcome home to Neighborly
+            {t("auth.welcome")}
           </h1>
-          <p className="text-balance text-lg text-ink-muted">
-            Sign-in is simulated in this prototype. Imagine passkeys or phone OTP — fast, minimal, and never in the way of
-            a ladder handoff.
-          </p>
+          <p className="text-balance text-lg text-ink-muted">{t("auth.subtitle")}</p>
           <div className="flex flex-wrap items-center justify-center gap-3 lg:justify-start">
             <span className="rounded-full border border-brand/25 bg-brand/10 px-4 py-2 text-xs font-semibold text-brand-dim dark:text-brand-glow">
-              App coming soon · iOS &amp; Android
+              {t("auth.appComingSoon")}
             </span>
           </div>
         </div>
@@ -34,10 +36,10 @@ export default function AuthDemoPage() {
               <Image src="/logo.png" alt="" fill className="object-contain p-1" priority />
             </div>
           </div>
-          <p className="text-center text-sm font-medium text-ink-muted">Demo credentials</p>
+          <p className="text-center text-sm font-medium text-ink-muted">{t("auth.demoCredentials")}</p>
           <div className="mt-4 space-y-3">
             <label className="block text-xs font-semibold uppercase tracking-wide text-ink-muted">
-              Email
+              {t("auth.email")}
               <input
                 readOnly
                 defaultValue="you@neighborly.demo"
@@ -45,7 +47,7 @@ export default function AuthDemoPage() {
               />
             </label>
             <label className="block text-xs font-semibold uppercase tracking-wide text-ink-muted">
-              Password
+              {t("auth.password")}
               <input
                 readOnly
                 type="password"
@@ -58,11 +60,9 @@ export default function AuthDemoPage() {
             href="/"
             className="mt-6 flex w-full items-center justify-center rounded-2xl bg-brand py-3.5 text-sm font-semibold text-white shadow-brand-soft transition hover:bg-brand-dim"
           >
-            Continue to Neighborly
+            {t("auth.continue")}
           </Link>
-          <p className="mt-4 text-center text-xs text-ink-muted">
-            By continuing you agree to the Neighborly Community Standards (demo copy).
-          </p>
+          <p className="mt-4 text-center text-xs text-ink-muted">{t("auth.agreement")}</p>
         </div>
       </div>
     </div>

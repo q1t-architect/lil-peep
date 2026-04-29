@@ -2,6 +2,7 @@
 
 import { CATEGORIES } from "@/lib/data";
 import type { FilterState } from "@/lib/listingFilters";
+import { useLocale } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 export type { FilterState } from "@/lib/listingFilters";
@@ -13,6 +14,8 @@ export function FilterBar({
   value: FilterState;
   onChange: (next: FilterState) => void;
 }) {
+  const { t } = useLocale();
+
   return (
     <div className="space-y-4">
       <div className="relative">
@@ -29,7 +32,7 @@ export function FilterBar({
         </svg>
         <input
           type="search"
-          placeholder="Search Neighborly — tools, sports, outdoors…"
+          placeholder={t("filter.searchPlaceholder")}
           value={value.query}
           onChange={(e) => onChange({ ...value, query: e.target.value })}
           className={cn(
@@ -41,26 +44,29 @@ export function FilterBar({
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        {CATEGORIES.map((c) => (
-          <button
-            key={c}
-            type="button"
-            onClick={() => onChange({ ...value, category: c })}
-            className={cn(
-              "rounded-full px-3.5 py-1.5 text-xs font-semibold transition",
-              value.category === c
-                ? "bg-brand text-white shadow-brand-soft-sm"
-                : "bg-black/[0.04] text-ink-muted hover:text-ink dark:bg-white/10",
-            )}
-          >
-            {c}
-          </button>
-        ))}
+        {CATEGORIES.map((c) => {
+          const label = t(`category.${c.toLowerCase()}` as Parameters<typeof t>[0]);
+          return (
+            <button
+              key={c}
+              type="button"
+              onClick={() => onChange({ ...value, category: c })}
+              className={cn(
+                "rounded-full px-3.5 py-1.5 text-xs font-semibold transition",
+                value.category === c
+                  ? "bg-brand text-white shadow-brand-soft-sm"
+                  : "bg-black/[0.04] text-ink-muted hover:text-ink dark:bg-white/10",
+              )}
+            >
+              {label}
+            </button>
+          );
+        })}
       </div>
 
       <div className="flex flex-col gap-3 rounded-2xl border border-black/[0.05] bg-white/50 p-4 dark:border-white/10 dark:bg-slate-900/40 lg:flex-row lg:items-center lg:justify-between">
         <label className="flex flex-1 flex-col gap-1 text-xs font-medium text-ink-muted">
-          Radius · {value.radiusKm} km
+          {t("filter.radius")} · {value.radiusKm} km
           <input
             type="range"
             min={1}
@@ -73,7 +79,7 @@ export function FilterBar({
 
         <div className="flex flex-wrap items-center gap-3">
           <Toggle
-            label="Free only"
+            label={t("filter.freeOnly")}
             on={value.freeOnly}
             onToggle={() => onChange({ ...value, freeOnly: !value.freeOnly })}
           />
@@ -87,18 +93,18 @@ export function FilterBar({
             }
             className="rounded-xl border border-black/[0.08] bg-white px-3 py-2 text-xs font-medium dark:border-white/10 dark:bg-slate-900"
           >
-            <option value="all">All availability</option>
-            <option value="available">Available now</option>
-            <option value="reserved">Reserved</option>
+            <option value="all">{t("filter.allAvailability")}</option>
+            <option value="available">{t("filter.availableNow")}</option>
+            <option value="reserved">{t("filter.reserved")}</option>
           </select>
           <select
             value={value.sort}
             onChange={(e) => onChange({ ...value, sort: e.target.value as FilterState["sort"] })}
             className="rounded-xl border border-black/[0.08] bg-white px-3 py-2 text-xs font-medium dark:border-white/10 dark:bg-slate-900"
           >
-            <option value="nearest">Sort · nearest</option>
-            <option value="newest">Sort · newest</option>
-            <option value="rating">Sort · owner rating</option>
+            <option value="nearest">{t("filter.sortNearest")}</option>
+            <option value="newest">{t("filter.sortNewest")}</option>
+            <option value="rating">{t("filter.sortRating")}</option>
           </select>
         </div>
       </div>

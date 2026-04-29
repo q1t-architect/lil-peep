@@ -1,0 +1,76 @@
+export const en = {
+  nav: {
+    map: "Map",
+    messages: "Messages",
+    alerts: "Alerts",
+    trust: "Trust & safety",
+    signIn: "Sign in",
+  },
+  home: {
+    eyebrow: "Hyperlocal · 18+",
+    headline: "Borrow, lend, and give away —",
+    headlineAccent: "on your block",
+    headlinePunct: ".",
+    subtitle:
+      "Neighborly is the calm, trust-forward way to share tools and gear without shipping boxes or endless DMs.",
+    nearYou: "Near you",
+    listings: "listings",
+    quietBlock: "Quiet block for now",
+    quietBlockSub:
+      "Try widening radius or clearing filters — Neighborly surfaces real listings as neighbors post them.",
+    lookingForEyebrow: "Looking for",
+    lookingForTitle: "Items you borrow often",
+    lookingForDesc:
+      "Neighborly learns what your household reaches for — ladders on move day, drills on Sunday, boots before the match. Save interests so neighbors can offer you first pick.",
+    wishlistDemo: "Demo · wishlist tags",
+  },
+  auth: {
+    welcome: "Welcome home to Neighborly",
+    subtitle:
+      "Sign-in is simulated in this prototype. Imagine passkeys or phone OTP — fast, minimal, and never in the way of a ladder handoff.",
+    demoCredentials: "Demo credentials",
+    email: "Email",
+    password: "Password",
+    continue: "Continue to Neighborly",
+    agreement: "By continuing you agree to the Neighborly Community Standards (demo copy).",
+    appComingSoon: "App coming soon · iOS & Android",
+  },
+  category: {
+    all: "All",
+    tools: "Tools",
+    sports: "Sports",
+    outdoors: "Outdoors",
+    home: "Home",
+    kids: "Kids",
+    electronics: "Electronics",
+  },
+  filter: {
+    searchPlaceholder: "Search Neighborly — tools, sports, outdoors…",
+    radius: "Radius",
+    freeOnly: "Free only",
+    allAvailability: "All availability",
+    availableNow: "Available now",
+    reserved: "Reserved",
+    sortNearest: "Sort · nearest",
+    sortNewest: "Sort · newest",
+    sortRating: "Sort · owner rating",
+  },
+  common: {
+    free: "Free",
+    reserved: "Reserved",
+    available: "Available",
+    verified: "Verified",
+    exchanges: "exchanges",
+    appComingSoon: "App coming soon · iOS & Android",
+    appComingSoonMobile: "Neighborly for mobile — App coming soon on iOS & Android",
+  },
+  footer: {
+    prototype:
+      "Neighborly is a presentation prototype — no real payments, accounts, or pickups. Brand accent",
+    nodeParagraphIntro: "Why run it this way?",
+    nodeParagraph:
+      " This app is built with Node.js — the free runtime that lets your computer execute the project and serve a local preview at localhost. Docker is optional: teams use it to lock the same environment everywhere; you do not need Docker for day-to-day demos if Node is installed.",
+  },
+} as const;
+
+export type Translations = typeof en;

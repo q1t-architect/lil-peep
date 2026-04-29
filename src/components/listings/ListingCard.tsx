@@ -4,9 +4,12 @@ import Image from "next/image";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import type { Listing } from "@/lib/data";
+import { useLocale } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 export function ListingCard({ listing, index = 0 }: { listing: Listing; index?: number }) {
+  const { t } = useLocale();
+
   return (
     <motion.article
       initial={{ opacity: 0, y: 10 }}
@@ -36,7 +39,7 @@ export function ListingCard({ listing, index = 0 }: { listing: Listing; index?: 
             </span>
             {listing.status === "reserved" && (
               <span className="rounded-full bg-amber-400/95 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-amber-950">
-                Reserved
+                {t("common.reserved")}
               </span>
             )}
           </div>
@@ -52,7 +55,7 @@ export function ListingCard({ listing, index = 0 }: { listing: Listing; index?: 
                   : "bg-brand text-white",
               )}
             >
-              {listing.priceType === "free" ? "Free" : `€${listing.priceEuro?.toFixed(2)}`}
+              {listing.priceType === "free" ? t("common.free") : `€${listing.priceEuro?.toFixed(2)}`}
             </span>
           </div>
         </div>
@@ -68,12 +71,12 @@ export function ListingCard({ listing, index = 0 }: { listing: Listing; index?: 
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium text-ink">{listing.owner.name}</p>
               <p className="text-xs text-ink-muted">
-                {listing.owner.rating.toFixed(2)} · {listing.owner.exchanges} exchanges
+                {listing.owner.rating.toFixed(2)} · {listing.owner.exchanges} {t("common.exchanges")}
               </p>
             </div>
             {listing.owner.verified && (
               <span className="rounded-md bg-brand/10 px-2 py-0.5 text-[10px] font-semibold text-brand-dim dark:text-brand-glow">
-                Verified
+                {t("common.verified")}
               </span>
             )}
           </div>
