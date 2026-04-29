@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import { InteractiveMap } from "@/components/map/InteractiveMap";
 import { FilterBar } from "@/components/listings/FilterBar";
 import { ListingCard } from "@/components/listings/ListingCard";
-import { MOCK_LISTINGS, WISHLIST_TAGS } from "@/lib/data";
+import { MOCK_LISTINGS, WISHLIST_TAGS, type Listing } from "@/lib/data";
 import { defaultFilterState, filterListings, type FilterState } from "@/lib/listingFilters";
 import { useLocale } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
@@ -15,7 +15,7 @@ export function HomePageClient() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const { t } = useLocale();
 
-  const filtered = useMemo(() => filterListings(MOCK_LISTINGS, filters), [filters]);
+  const filtered = useMemo(() => filterListings(MOCK_LISTINGS, filters) as Listing[], [filters]);
 
   const mapListings = useMemo(() => {
     if (!selectedId) return filtered;

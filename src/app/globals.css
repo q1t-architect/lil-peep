@@ -50,6 +50,15 @@ body {
     @apply border border-brand/15 shadow-glass dark:border-brand/25 dark:shadow-glass-dark;
   }
 
+  .input-base {
+    @apply w-full rounded-xl border border-black/[0.08] bg-white/80 px-4 py-3 text-sm text-ink
+           placeholder:text-ink-muted/60
+           shadow-sm outline-none transition
+           focus:border-brand focus:ring-2 focus:ring-brand/20
+           dark:border-white/10 dark:bg-slate-900/80 dark:text-slate-100
+           dark:focus:border-brand dark:focus:ring-brand/30;
+  }
+
   .scrollbar-thin {
     scrollbar-width: thin;
     scrollbar-color: rgba(37, 150, 190, 0.35) transparent;
