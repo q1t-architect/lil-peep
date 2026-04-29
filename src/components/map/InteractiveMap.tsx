@@ -109,7 +109,7 @@ export function InteractiveMap({ listings, selectedId, onSelect, className }: Pr
         source?.getClusterExpansionZoom(clusterId, (err: Error | null, zoom: number) => {
           if (err) return;
           mapRef.current?.flyTo({
-            center: (feature.geometry as { coordinates: [number, number] }).coordinates,
+            center: (feature.geometry as unknown as { coordinates: [number, number] }).coordinates,
             zoom: zoom + 0.5,
             duration: 700,
           });
