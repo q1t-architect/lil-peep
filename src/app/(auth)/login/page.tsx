@@ -5,28 +5,16 @@ import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Logo } from "@/components/AppShell";
 import { createClient } from "@/lib/supabase/client";
+import { useLocale } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 type ErrorKind = "invalid_credentials" | "unconfirmed" | "network" | "other";
-
-function classifyError(message: string): ErrorKind {
-  const m = message.toLowerCase();
-  if (m.includes("invalid login") || m.includes("invalid credentials") || m.includes("email not found")) {
-    return "invalid_credentials";
-  }
-  if (m.includes("email not confirmed") || m.includes("not confirmed")) {
-    return "unconfirmed";
-  }
-  if (m.includes("network") || m.includes("fetch")) {
-    return "network";
-  }
-  return "other";
-}
 
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get("redirect") || "/";
+  const { t } = useLocale();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -42,9 +30,9 @@ function LoginForm() {
     let ok = true;
     setEmailError("");
     setPasswordError("");
-    if (!email.trim()) { setEmailError("Email is required"); ok = false; }
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { setEmailError("Enter a valid email"); ok = false; }
-    if (!password) { setPasswordError("Password is required"); ok = false; }
+    if (!email.trim()) { setEmailError(t("auth.valEmailRequired")); ok = false; }
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { setEmailError(t("auth.valEmailInvalid")); ok = false; }
+    if (!password) { setPasswordError(t("auth.valPasswordRequired")); ok = false; }
     return ok;
   }
 
@@ -70,6 +58,20 @@ function LoginForm() {
     if (kind === "other") setErrorMessage(error.message);
   }
 
+  function classifyError(message: string): ErrorKind {
+    const m = message.toLowerCase();
+    if (m.includes("invalid login") || m.includes("invalid credentials") || m.includes("email not found")) {
+      return "invalid_credentials";
+    }
+    if (m.includes("email not confirmed") || m.includes("not confirmed")) {
+      return "unconfirmed";
+    }
+    if (m.includes("network") || m.includes("fetch")) {
+      return "network";
+    }
+    return "other";
+  }
+
   async function handleResend() {
     setResendLoading(true);
     const supabase = createClient();
@@ -85,23 +87,23 @@ function LoginForm() {
           <Logo size="lg" />
         </div>
         <h1 className="mb-1 text-center font-display text-2xl font-semibold text-ink">
-          Welcome back
+          {t("auth.loginTitle")}
         </h1>
         <p className="mb-6 text-center text-sm text-ink-muted">
-          Sign in to your Neighborly account
+          {t("auth.loginSubtitle")}
         </p>
 
         <form onSubmit={handleSubmit} noValidate className="space-y-4">
           {/* Email */}
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wide text-ink-muted">
-              Email
+              {t("auth.email")}
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 autoComplete="email"
-                placeholder="you@example.com"
+                placeholder={t("auth.signupEmailPlaceholder")}
                 className={cn(
                   "mt-1 w-full rounded-xl border bg-white px-4 py-3 text-sm transition dark:bg-slate-900",
                   "focus:border-brand/40 focus:outline-none focus:ring-2 focus:ring-brand/20",
@@ -120,13 +122,13 @@ function LoginForm() {
           <div>
             <div className="flex items-baseline justify-between">
               <span className="text-xs font-semibold uppercase tracking-wide text-ink-muted">
-                Password
+                {t("auth.password")}
               </span>
               <Link
                 href="/forgot-password"
                 className="text-xs font-medium text-brand hover:text-brand-dim"
               >
-                Forgot password?
+                {t("auth.loginForgot")}
               </Link>
             </div>
             <input
@@ -134,7 +136,7 @@ function LoginForm() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               autoComplete="current-password"
-              placeholder="Your password"
+              placeholder="••••••••"
               className={cn(
                 "mt-1 w-full rounded-xl border bg-white px-4 py-3 text-sm transition dark:bg-slate-900",
                 "focus:border-brand/40 focus:outline-none focus:ring-2 focus:ring-brand/20",
@@ -150,15 +152,15 @@ function LoginForm() {
 
           {/* Submit errors */}
           {errorKind === "invalid_credentials" && (
-            <p className="text-sm text-red-600 dark:text-red-400">Invalid email or password.</p>
+            <p className="text-sm text-red-600 dark:text-red-400">{t("auth.loginInvalid")}</p>
           )}
           {errorKind === "unconfirmed" && (
             <div className="space-y-1">
               <p className="text-sm text-red-600 dark:text-red-400">
-                Please confirm your email first.
+                {t("auth.loginUnconfirmed")}
               </p>
               {resendSent ? (
-                <p className="text-xs text-ink-muted">Confirmation email resent.</p>
+                <p className="text-xs text-ink-muted">{t("auth.loginResendSent")}</p>
               ) : (
                 <button
                   type="button"
@@ -166,14 +168,14 @@ function LoginForm() {
                   disabled={resendLoading}
                   className="text-xs font-medium text-brand hover:text-brand-dim disabled:opacity-60"
                 >
-                  {resendLoading ? "Sending…" : "Resend confirmation email"}
+                  {resendLoading ? t("auth.forgotSending") : t("auth.loginResend")}
                 </button>
               )}
             </div>
           )}
           {errorKind === "network" && (
             <p className="text-sm text-red-600 dark:text-red-400">
-              Network error. Check your connection.
+              {t("auth.loginNetworkError")}
             </p>
           )}
           {errorKind === "other" && errorMessage && (
@@ -185,14 +187,14 @@ function LoginForm() {
             disabled={loading}
             className="mt-2 flex w-full items-center justify-center rounded-2xl bg-brand py-3.5 text-sm font-semibold text-white shadow-brand-soft transition hover:bg-brand-dim disabled:opacity-60"
           >
-            {loading ? "Logging in…" : "Log in"}
+            {loading ? t("auth.loginLogging") : t("auth.loginButton")}
           </button>
         </form>
 
         <p className="mt-5 text-center text-sm text-ink-muted">
-          Don&apos;t have an account?{" "}
+          {t("auth.loginNoAccount")}{" "}
           <Link href="/signup" className="font-medium text-brand hover:text-brand-dim">
-            Sign up
+            {t("auth.loginSignUp")}
           </Link>
         </p>
       </div>

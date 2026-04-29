@@ -4,22 +4,13 @@ import Link from "next/link";
 import { useState } from "react";
 import { Logo } from "@/components/AppShell";
 import { createClient } from "@/lib/supabase/client";
+import { useLocale } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 type FieldErrors = { name?: string; email?: string; password?: string };
 
-function validate(name: string, email: string, password: string): FieldErrors {
-  const errors: FieldErrors = {};
-  if (!name.trim()) errors.name = "Name is required";
-  else if (name.trim().length > 50) errors.name = "Name must be 50 characters or fewer";
-  if (!email.trim()) errors.email = "Email is required";
-  else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.email = "Enter a valid email address";
-  if (!password) errors.password = "Password is required";
-  else if (password.length < 8) errors.password = "Password must be at least 8 characters";
-  return errors;
-}
-
 export default function SignupPage() {
+  const { t } = useLocale();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -28,6 +19,17 @@ export default function SignupPage() {
   const [emailExists, setEmailExists] = useState(false);
   const [loading, setLoading] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
+
+  function validate(name: string, email: string, password: string): FieldErrors {
+    const errors: FieldErrors = {};
+    if (!name.trim()) errors.name = t("auth.valNameRequired");
+    else if (name.trim().length > 50) errors.name = t("auth.valNameTooLong");
+    if (!email.trim()) errors.email = t("auth.valEmailRequired");
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.email = t("auth.valEmailInvalid");
+    if (!password) errors.password = t("auth.valPasswordRequired");
+    else if (password.length < 8) errors.password = t("auth.valPasswordTooShort");
+    return errors;
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -71,14 +73,13 @@ export default function SignupPage() {
           <div className="flex justify-center">
             <Logo size="md" withWordmark={false} />
           </div>
-          <h2 className="font-display text-2xl font-semibold text-ink">Check your inbox</h2>
+          <h2 className="font-display text-2xl font-semibold text-ink">{t("auth.signupCheckInbox")}</h2>
           <p className="text-sm text-ink-muted">
-            We sent a confirmation email to{" "}
-            <span className="font-medium text-ink">{email}</span>. Click the link inside to
-            activate your account.
+            {t("auth.signupConfirmSent")}{" "}
+            <span className="font-medium text-ink">{email}</span>. {t("auth.signupConfirmAction")}
           </p>
           <Link href="/login" className="inline-block text-sm font-medium text-brand hover:text-brand-dim">
-            Back to login →
+            {t("auth.signupBackToLogin")}
           </Link>
         </div>
       </div>
@@ -92,23 +93,23 @@ export default function SignupPage() {
           <Logo size="lg" />
         </div>
         <h1 className="mb-1 text-center font-display text-2xl font-semibold text-ink">
-          Create your account
+          {t("auth.signupTitle")}
         </h1>
         <p className="mb-6 text-center text-sm text-ink-muted">
-          Join your neighborhood on Neighborly
+          {t("auth.signupSubtitle")}
         </p>
 
         <form onSubmit={handleSubmit} noValidate className="space-y-4">
           {/* Name */}
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wide text-ink-muted">
-              Name
+              {t("auth.signupName")}
               <input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 autoComplete="name"
-                placeholder="Your full name"
+                placeholder={t("auth.signupNamePlaceholder")}
                 className={cn(
                   "mt-1 w-full rounded-xl border bg-white px-4 py-3 text-sm transition dark:bg-slate-900",
                   "focus:border-brand/40 focus:outline-none focus:ring-2 focus:ring-brand/20",
@@ -126,13 +127,13 @@ export default function SignupPage() {
           {/* Email */}
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wide text-ink-muted">
-              Email
+              {t("auth.email")}
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 autoComplete="email"
-                placeholder="you@example.com"
+                placeholder={t("auth.signupEmailPlaceholder")}
                 className={cn(
                   "mt-1 w-full rounded-xl border bg-white px-4 py-3 text-sm transition dark:bg-slate-900",
                   "focus:border-brand/40 focus:outline-none focus:ring-2 focus:ring-brand/20",
@@ -150,13 +151,13 @@ export default function SignupPage() {
           {/* Password */}
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wide text-ink-muted">
-              Password
+              {t("auth.password")}
               <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 autoComplete="new-password"
-                placeholder="Min. 8 characters"
+                placeholder={t("auth.signupPasswordPlaceholder")}
                 className={cn(
                   "mt-1 w-full rounded-xl border bg-white px-4 py-3 text-sm transition dark:bg-slate-900",
                   "focus:border-brand/40 focus:outline-none focus:ring-2 focus:ring-brand/20",
@@ -174,9 +175,9 @@ export default function SignupPage() {
           {/* Errors */}
           {emailExists && (
             <p className="text-sm text-red-600 dark:text-red-400">
-              This email is already registered.{" "}
+              {t("auth.signupEmailExists")}{" "}
               <Link href="/login" className="font-medium underline underline-offset-2">
-                Log in instead?
+                {t("auth.signupLoginInstead")}
               </Link>
             </p>
           )}
@@ -189,14 +190,14 @@ export default function SignupPage() {
             disabled={loading}
             className="mt-2 flex w-full items-center justify-center rounded-2xl bg-brand py-3.5 text-sm font-semibold text-white shadow-brand-soft transition hover:bg-brand-dim disabled:opacity-60"
           >
-            {loading ? "Creating account…" : "Create account"}
+            {loading ? t("auth.signupCreating") : t("auth.signupButton")}
           </button>
         </form>
 
         <p className="mt-5 text-center text-sm text-ink-muted">
-          Already have an account?{" "}
+          {t("auth.signupHasAccount")}{" "}
           <Link href="/login" className="font-medium text-brand hover:text-brand-dim">
-            Log in
+            {t("auth.signupLogin")}
           </Link>
         </p>
       </div>

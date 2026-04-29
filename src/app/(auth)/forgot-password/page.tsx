@@ -4,9 +4,11 @@ import Link from "next/link";
 import { useState } from "react";
 import { Logo } from "@/components/AppShell";
 import { createClient } from "@/lib/supabase/client";
+import { useLocale } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
 export default function ForgotPasswordPage() {
+  const { t } = useLocale();
   const [email, setEmail] = useState("");
   const [emailError, setEmailError] = useState("");
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -19,11 +21,11 @@ export default function ForgotPasswordPage() {
     setSubmitError(null);
 
     if (!email.trim()) {
-      setEmailError("Email is required");
+      setEmailError(t("auth.valEmailRequired"));
       return;
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setEmailError("Enter a valid email address");
+      setEmailError(t("auth.valEmailInvalid"));
       return;
     }
 
@@ -35,7 +37,7 @@ export default function ForgotPasswordPage() {
     setLoading(false);
 
     if (error) {
-      setSubmitError("Unable to send reset link. Try again.");
+      setSubmitError(t("auth.valGenericError"));
       return;
     }
 
@@ -49,14 +51,13 @@ export default function ForgotPasswordPage() {
           <div className="flex justify-center">
             <Logo size="md" withWordmark={false} />
           </div>
-          <h2 className="font-display text-2xl font-semibold text-ink">Check your inbox</h2>
+          <h2 className="font-display text-2xl font-semibold text-ink">{t("auth.forgotCheckInbox")}</h2>
           <p className="text-sm text-ink-muted">
-            Reset link sent to{" "}
-            <span className="font-medium text-ink">{email}</span>. Follow the link to set a new
-            password.
+            {t("auth.forgotResetSent")}{" "}
+            <span className="font-medium text-ink">{email}</span>. {t("auth.forgotResetAction")}
           </p>
           <Link href="/login" className="inline-block text-sm font-medium text-brand hover:text-brand-dim">
-            ← Back to login
+            {t("auth.forgotBackToLogin")}
           </Link>
         </div>
       </div>
@@ -70,22 +71,22 @@ export default function ForgotPasswordPage() {
           <Logo size="lg" />
         </div>
         <h1 className="mb-1 text-center font-display text-2xl font-semibold text-ink">
-          Reset your password
+          {t("auth.forgotTitle")}
         </h1>
         <p className="mb-6 text-center text-sm text-ink-muted">
-          We&apos;ll send a reset link to your email
+          {t("auth.forgotSubtitle")}
         </p>
 
         <form onSubmit={handleSubmit} noValidate className="space-y-4">
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wide text-ink-muted">
-              Email
+              {t("auth.email")}
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 autoComplete="email"
-                placeholder="you@example.com"
+                placeholder={t("auth.signupEmailPlaceholder")}
                 className={cn(
                   "mt-1 w-full rounded-xl border bg-white px-4 py-3 text-sm transition dark:bg-slate-900",
                   "focus:border-brand/40 focus:outline-none focus:ring-2 focus:ring-brand/20",
@@ -109,13 +110,13 @@ export default function ForgotPasswordPage() {
             disabled={loading}
             className="mt-2 flex w-full items-center justify-center rounded-2xl bg-brand py-3.5 text-sm font-semibold text-white shadow-brand-soft transition hover:bg-brand-dim disabled:opacity-60"
           >
-            {loading ? "Sending…" : "Send reset link"}
+            {loading ? t("auth.forgotSending") : t("auth.forgotButton")}
           </button>
         </form>
 
         <p className="mt-5 text-center text-sm text-ink-muted">
           <Link href="/login" className="font-medium text-brand hover:text-brand-dim">
-            ← Back to login
+            {t("auth.forgotBackToLogin")}
           </Link>
         </p>
       </div>
