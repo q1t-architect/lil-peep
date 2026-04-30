@@ -46,7 +46,7 @@ export function ProfileEditClient({ profile }: { profile: Profile }) {
 
       const { error: uploadErr } = await supabase.storage
         .from(BUCKET)
-        .upload(path, file, { upsert: true });
+        .upload(path, file, { upsert: true, contentType: file.type });
 
       if (uploadErr) throw uploadErr;
 

@@ -8,7 +8,7 @@ import { ThemeToggle } from "@/components/providers/ThemeProvider";
 import { useLocale } from "@/lib/i18n";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { createClient } from "@/lib/supabase/client";
-import { MOCK_NOTIFICATIONS } from "@/lib/data";
+import { useUnreadCount } from "@/hooks/useUnreadCount";
 import { cn } from "@/lib/utils";
 import type { Locale } from "@/lib/i18n";
 
@@ -227,7 +227,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { t } = useLocale();
   const { user, loading } = useAuth();
-  const unread = MOCK_NOTIFICATIONS.filter((n) => !n.read).length;
+  const unread = useUnreadCount();
 
   const navLinks = [
     { href: "/", label: t("nav.map") },

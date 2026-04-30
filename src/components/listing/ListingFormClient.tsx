@@ -13,12 +13,34 @@ import { cn } from "@/lib/utils";
 import type { ListingWithOwner } from "@/lib/listings.client";
 
 // ---------------------------------------------------------------------------
-// Props
+// Types
 // ---------------------------------------------------------------------------
 
 interface Props {
   userId: string;
   editing?: ListingWithOwner;
+}
+
+/**
+ * A photo is either:
+ * - "url"  — already a remote URL (from existing listing or previous upload)
+ * - "file" — new local file not yet uploaded; preview is an object URL for display
+ */
+type PhotoEntry =
+  | { type: "url"; url: string }
+  | { type: "file"; preview: string; file: File };
+
+function getPhotoSrc(entry: PhotoEntry): string {
+  return entry.type === "url" ? entry.url : entry.preview;
+}
+
+function getFileExt(file: File): string {
+  const map: Record<string, string> = {
+    "image/jpeg": "jpg",
+    "image/png": "png",
+    "image/webp": "webp",
+  };
+  return map[file.type] ?? "jpg";
 }
 
 // ---------------------------------------------------------------------------
@@ -38,60 +60,64 @@ export function ListingFormClient({ userId, editing }: Props) {
   const [neighborhood, setNeighborhood] = useState(editing?.neighborhood ?? "");
   const [priceType, setPriceType] = useState<"free" | "symbolic">(editing?.price_type ?? "free");
   const [priceEuro, setPriceEuro] = useState(editing?.price_euro?.toString() ?? "");
-  const [photos, setPhotos] = useState<string[]>(editing?.images ?? []);
+  const [photoEntries, setPhotoEntries] = useState<PhotoEntry[]>(
+    (editing?.images ?? []).map((url) => ({ type: "url", url })),
+  );
   const [lat, setLat] = useState<number | null>(null);
   const [lng, setLng] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN!;
+  const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 
-  // --- Photo upload ---
-  const handleFiles = useCallback(async (files: FileList) => {
-    const supabase = createClient();
-    const remaining = 5 - photos.length;
-    const toUpload = Array.from(files).slice(0, remaining);
+  // -------------------------------------------------------------------------
+  // Photo selection — just create local preview, defer upload to submit
+  // -------------------------------------------------------------------------
+  const handleFiles = useCallback(
+    (files: FileList) => {
+      const remaining = 5 - photoEntries.length;
+      const toAdd = Array.from(files).slice(0, remaining);
 
-    for (const file of toUpload) {
-      if (file.size > 5 * 1024 * 1024) {
-        setToast("Max file size is 5 MB");
-        continue;
-      }
-      // In demo mode (no storage), create a local preview URL
-      const previewUrl = URL.createObjectURL(file);
-      setPhotos((prev) => [...prev, previewUrl]);
-
-      // Try real upload if Supabase is available
-      try {
-        const ext = file.name.split(".").pop() ?? "jpg";
-        const path = `${userId}/temp-${Date.now()}-${Math.random().toString(36).slice(2, 6)}.${ext}`;
-        const { error } = await supabase.storage.from("listing-photos").upload(path, file);
-        if (!error) {
-          const { data: { publicUrl } } = supabase.storage.from("listing-photos").getPublicUrl(path);
-          setPhotos((prev) => {
-            const updated = [...prev];
-            updated[updated.length - 1] = publicUrl;
-            return updated;
-          });
+      const newEntries: PhotoEntry[] = [];
+      for (const file of toAdd) {
+        if (file.size > 5 * 1024 * 1024) {
+          setToast(`${file.name}: max 5 MB`);
+          continue;
         }
-      } catch {
-        // Keep the blob URL for demo
+        if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+          setToast(`${file.name}: JPEG, PNG or WebP only`);
+          continue;
+        }
+        newEntries.push({ type: "file", preview: URL.createObjectURL(file), file });
       }
-    }
-  }, [photos.length, userId]);
+      setPhotoEntries((prev) => [...prev, ...newEntries]);
+    },
+    [photoEntries.length],
+  );
 
-  // --- Neighborhood → coords ---
+  const removePhoto = (index: number) => {
+    setPhotoEntries((prev) => {
+      const entry = prev[index];
+      // Revoke blob URL to avoid memory leaks
+      if (entry.type === "file") URL.revokeObjectURL(entry.preview);
+      return prev.filter((_, i) => i !== index);
+    });
+  };
+
+  // -------------------------------------------------------------------------
+  // Neighborhood → coords
+  // -------------------------------------------------------------------------
   const handleNeighborhood = (name: string) => {
     setNeighborhood(name);
     const n = MADRID_NEIGHBORHOODS.find((nb) => nb.name === name);
-    if (n) {
-      setLat(n.lat);
-      setLng(n.lng);
-    }
+    if (n) { setLat(n.lat); setLng(n.lng); }
   };
 
-  // --- Validate ---
+  // -------------------------------------------------------------------------
+  // Validate
+  // -------------------------------------------------------------------------
   const validate = (): boolean => {
     const e: Record<string, string> = {};
     if (!title.trim()) e.title = t("listing.valTitleRequired");
@@ -99,19 +125,64 @@ export function ListingFormClient({ userId, editing }: Props) {
     if (!description.trim()) e.description = t("listing.valDescriptionRequired");
     if (!category) e.category = t("listing.valCategoryRequired");
     if (!neighborhood) e.neighborhood = t("listing.valNeighborhoodRequired");
-    if (photos.length === 0) e.photos = t("listing.valPhotoRequired");
+    if (photoEntries.length === 0) e.photos = t("listing.valPhotoRequired");
     setErrors(e);
     return Object.keys(e).length === 0;
   };
 
-  // --- Submit ---
+  // -------------------------------------------------------------------------
+  // Upload pending files to Supabase Storage
+  // Returns final URL list (existing urls kept, new files uploaded)
+  // -------------------------------------------------------------------------
+  async function uploadPendingPhotos(listingId: string): Promise<string[]> {
+    const supabase = createClient();
+    const urls: string[] = [];
+
+    for (let i = 0; i < photoEntries.length; i++) {
+      const entry = photoEntries[i];
+      if (entry.type === "url") {
+        urls.push(entry.url);
+        continue;
+      }
+
+      setUploadProgress(`Uploading photo ${i + 1} of ${photoEntries.length}…`);
+
+      const ext = getFileExt(entry.file);
+      const path = `${userId}/${listingId}/${i}.${ext}`;
+
+      const { error } = await supabase.storage
+        .from("listing-photos")
+        .upload(path, entry.file, { upsert: true, contentType: entry.file.type });
+
+      if (error) {
+        console.error("Photo upload error:", error.message);
+        // Skip failed uploads — don't break the whole listing creation
+        continue;
+      }
+
+      const { data: { publicUrl } } = supabase.storage
+        .from("listing-photos")
+        .getPublicUrl(path);
+
+      urls.push(publicUrl);
+      // Revoke blob URL now that we have the real URL
+      URL.revokeObjectURL(entry.preview);
+    }
+
+    setUploadProgress(null);
+    return urls;
+  }
+
+  // -------------------------------------------------------------------------
+  // Submit
+  // -------------------------------------------------------------------------
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
     setSubmitting(true);
 
     try {
-      const input: CreateListingInput = {
+      const baseInput: CreateListingInput = {
         title: title.trim(),
         description: description.trim(),
         category,
@@ -120,30 +191,45 @@ export function ListingFormClient({ userId, editing }: Props) {
         price_euro: priceType === "symbolic" ? parseFloat(priceEuro) || undefined : undefined,
         lat: lat ?? 40.4168,
         lng: lng ?? -3.7038,
-        images: photos,
+        images: [],
       };
 
       if (isEdit && editing) {
-        await updateListing({ id: editing.id, ...input });
+        // Edit flow: upload new files first (we already have the listing ID)
+        const imageUrls = await uploadPendingPhotos(editing.id);
+        await updateListing({ id: editing.id, ...baseInput, images: imageUrls });
         router.push(`/listing/${editing.id}`);
       } else {
-        const result = await createListing(input);
-        if (result?.id) {
-          router.push(`/listing/${result.id}`);
-        } else {
-          router.push("/");
+        // Create flow:
+        // 1. Create listing with no images to get an ID
+        const result = await createListing({ ...baseInput, images: [] });
+        if (!result?.id) throw new Error("Listing creation returned no ID");
+
+        // 2. Upload photos to {userId}/{listingId}/{index}.ext
+        const imageUrls = await uploadPendingPhotos(result.id);
+
+        // 3. Update listing with the real image URLs (only if we got any)
+        if (imageUrls.length > 0) {
+          await updateListing({ id: result.id, images: imageUrls });
         }
+
+        router.push(`/listing/${result.id}`);
       }
     } catch (err) {
+      console.error("Submit error:", err);
       setToast(isEdit ? t("listing.updateError") : t("listing.createError"));
       setSubmitting(false);
+      setUploadProgress(null);
     }
   };
 
-  // --- Mapbox static map URL for pickup location ---
-  const staticMapUrl = lat != null && lng != null
-    ? `https://api.mapbox.com/styles/v1/mapbox/light-v11/static/pin-s+2596be(${lng},${lat})/${lng},${lat},14,0/600x300@2x?access_token=${MAPBOX_TOKEN}`
-    : `https://api.mapbox.com/styles/v1/mapbox/light-v11/static/-3.7038,40.4168,12,0/600x300@2x?access_token=${MAPBOX_TOKEN}`;
+  // -------------------------------------------------------------------------
+  // Static map preview
+  // -------------------------------------------------------------------------
+  const staticMapUrl =
+    lat != null && lng != null
+      ? `https://api.mapbox.com/styles/v1/mapbox/light-v11/static/pin-s+2596be(${lng},${lat})/${lng},${lat},14,0/600x300@2x?access_token=${MAPBOX_TOKEN}`
+      : `https://api.mapbox.com/styles/v1/mapbox/light-v11/static/-3.7038,40.4168,12,0/600x300@2x?access_token=${MAPBOX_TOKEN}`;
 
   const categoriesList = CATEGORIES.filter((c) => c !== "All");
 
@@ -163,7 +249,9 @@ export function ListingFormClient({ userId, editing }: Props) {
       <form onSubmit={handleSubmit} className="mt-8 space-y-6">
         {/* Title */}
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-ink">{t("listing.titleLabel")}</label>
+          <label className="mb-1.5 block text-sm font-medium text-ink">
+            {t("listing.titleLabel")}
+          </label>
           <input
             type="text"
             value={title}
@@ -177,7 +265,9 @@ export function ListingFormClient({ userId, editing }: Props) {
 
         {/* Description */}
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-ink">{t("listing.descriptionLabel")}</label>
+          <label className="mb-1.5 block text-sm font-medium text-ink">
+            {t("listing.descriptionLabel")}
+          </label>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
@@ -185,12 +275,16 @@ export function ListingFormClient({ userId, editing }: Props) {
             placeholder={t("listing.descriptionPlaceholder")}
             className="input-base min-h-[100px] resize-y"
           />
-          {errors.description && <p className="mt-1 text-xs text-rose-500">{errors.description}</p>}
+          {errors.description && (
+            <p className="mt-1 text-xs text-rose-500">{errors.description}</p>
+          )}
         </div>
 
         {/* Category */}
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-ink">{t("listing.categoryLabel")}</label>
+          <label className="mb-1.5 block text-sm font-medium text-ink">
+            {t("listing.categoryLabel")}
+          </label>
           <div className="flex flex-wrap gap-2">
             {categoriesList.map((c) => (
               <button
@@ -213,7 +307,9 @@ export function ListingFormClient({ userId, editing }: Props) {
 
         {/* Neighborhood */}
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-ink">{t("listing.neighborhoodLabel")}</label>
+          <label className="mb-1.5 block text-sm font-medium text-ink">
+            {t("listing.neighborhoodLabel")}
+          </label>
           <select
             value={neighborhood}
             onChange={(e) => handleNeighborhood(e.target.value)}
@@ -221,15 +317,21 @@ export function ListingFormClient({ userId, editing }: Props) {
           >
             <option value="">{t("listing.neighborhoodPlaceholder")}</option>
             {MADRID_NEIGHBORHOODS.map((n) => (
-              <option key={n.name} value={n.name}>{n.name}</option>
+              <option key={n.name} value={n.name}>
+                {n.name}
+              </option>
             ))}
           </select>
-          {errors.neighborhood && <p className="mt-1 text-xs text-rose-500">{errors.neighborhood}</p>}
+          {errors.neighborhood && (
+            <p className="mt-1 text-xs text-rose-500">{errors.neighborhood}</p>
+          )}
         </div>
 
-        {/* Price type */}
+        {/* Price */}
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-ink">{t("listing.priceLabel")}</label>
+          <label className="mb-1.5 block text-sm font-medium text-ink">
+            {t("listing.priceLabel")}
+          </label>
           <div className="flex gap-3">
             <button
               type="button"
@@ -259,7 +361,9 @@ export function ListingFormClient({ userId, editing }: Props) {
           {priceType === "symbolic" && (
             <div className="mt-3">
               <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-medium text-ink-muted">€</span>
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-medium text-ink-muted">
+                  €
+                </span>
                 <input
                   type="number"
                   min="0"
@@ -276,21 +380,47 @@ export function ListingFormClient({ userId, editing }: Props) {
 
         {/* Photos */}
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-ink">{t("listing.photosLabel")}</label>
+          <label className="mb-1.5 block text-sm font-medium text-ink">
+            {t("listing.photosLabel")}
+          </label>
           <div className="flex flex-wrap gap-3">
-            {photos.map((src, i) => (
-              <div key={i} className="relative h-24 w-24 overflow-hidden rounded-2xl ring-2 ring-brand/20">
-                <Image src={src} alt="" fill className="object-cover" sizes="96px" />
+            {photoEntries.map((entry, i) => (
+              <div
+                key={i}
+                className="relative h-24 w-24 overflow-hidden rounded-2xl ring-2 ring-brand/20"
+              >
+                {/* Use img for blob: preview URLs to avoid Next.js Image domain restrictions */}
+                {entry.type === "file" ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={entry.preview}
+                    alt=""
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <Image
+                    src={entry.url}
+                    alt=""
+                    fill
+                    className="object-cover"
+                    sizes="96px"
+                  />
+                )}
                 <button
                   type="button"
-                  onClick={() => setPhotos((prev) => prev.filter((_, j) => j !== i))}
+                  onClick={() => removePhoto(i)}
                   className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/50 text-xs text-white hover:bg-black/70"
                 >
                   ×
                 </button>
+                {entry.type === "file" && (
+                  <span className="absolute bottom-1 left-1 rounded bg-black/50 px-1 text-[9px] text-white">
+                    new
+                  </span>
+                )}
               </div>
             ))}
-            {photos.length < 5 && (
+            {photoEntries.length < 5 && (
               <button
                 type="button"
                 onClick={() => fileRef.current?.click()}
@@ -312,12 +442,18 @@ export function ListingFormClient({ userId, editing }: Props) {
           {errors.photos && <p className="mt-1 text-xs text-rose-500">{errors.photos}</p>}
         </div>
 
-        {/* Pickup location (static map) */}
+        {/* Pickup location */}
         <div>
-          <label className="mb-1.5 block text-sm font-medium text-ink">{t("listing.locationLabel")}</label>
+          <label className="mb-1.5 block text-sm font-medium text-ink">
+            {t("listing.locationLabel")}
+          </label>
           <div className="relative overflow-hidden rounded-2xl border border-black/[0.06] dark:border-white/10">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={staticMapUrl} alt="Pickup location" className="h-[200px] w-full object-cover" />
+            <img
+              src={staticMapUrl}
+              alt="Pickup location"
+              className="h-[200px] w-full object-cover"
+            />
             <div className="absolute bottom-3 left-3 rounded-full bg-white/90 px-3 py-1 text-xs font-medium text-ink backdrop-blur dark:bg-slate-900/80 dark:text-slate-100">
               {neighborhood || "Madrid"} · Pickup
             </div>
@@ -336,13 +472,20 @@ export function ListingFormClient({ userId, editing }: Props) {
             "hover:bg-brand-dim disabled:cursor-not-allowed disabled:opacity-60",
           )}
         >
-          {submitting ? "..." : isEdit ? t("listing.updateBtn") : t("listing.createBtn")}
+          {uploadProgress ?? (submitting
+            ? "…"
+            : isEdit
+              ? t("listing.updateBtn")
+              : t("listing.createBtn"))}
         </motion.button>
       </form>
 
       {/* Toast */}
       {toast && (
-        <div className="fixed bottom-6 left-1/2 z-[110] w-[min(90vw,420px)] -translate-x-1/2 rounded-2xl border border-black/[0.06] bg-white/95 px-4 py-3 text-center text-sm font-medium text-ink shadow-glass-lg dark:border-white/10 dark:bg-slate-900/95">
+        <div
+          className="fixed bottom-6 left-1/2 z-[110] w-[min(90vw,420px)] -translate-x-1/2 cursor-pointer rounded-2xl border border-black/[0.06] bg-white/95 px-4 py-3 text-center text-sm font-medium text-ink shadow-glass-lg dark:border-white/10 dark:bg-slate-900/95"
+          onClick={() => setToast(null)}
+        >
           {toast}
         </div>
       )}
