@@ -1,0 +1,29 @@
+{
+  "name": "Neighborly — Local borrow & give marketplace",
+  "short_name": "Neighborly",
+  "description": "Hyperlocal item exchange, trust-first profiles, and map-first discovery for sustainable neighborhoods in Madrid.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#4F46E5",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/android-chrome-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/android-chrome-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ],
+  "categories": ["shopping", "social", "lifestyle"]
+}

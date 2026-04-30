@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /auth/
+Disallow: /messages
+Disallow: /notifications
+Disallow: /profile/edit
+Disallow: /listing/new
+Disallow: /listing/*/edit
+
+Sitemap: https://neighborly.app/sitemap.xml
