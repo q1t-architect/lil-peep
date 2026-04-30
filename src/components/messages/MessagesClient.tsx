@@ -23,6 +23,7 @@ type Conversation = {
   peer: Profile;
   lastMessage: string;
   lastAt: string;
+  unread: number;
 };
 
 type Message = {
@@ -48,14 +49,22 @@ function timeAgo(iso: string): string {
   return new Date(iso).toLocaleDateString();
 }
 
+/** Bubble the conversation with the given id to the top of the list */
+function bubbleUp(prev: Conversation[], id: string): Conversation[] {
+  const idx = prev.findIndex((c) => c.id === id);
+  if (idx <= 0) return prev;
+  const next = [...prev];
+  const [item] = next.splice(idx, 1);
+  next.unshift(item);
+  return next;
+}
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
 export function MessagesClient() {
   const { user, loading: authLoading } = useAuth();
-  // Singleton client — createBrowserClient is memoised per URL+key internally,
-  // but useMemo ensures stable ref for channel cleanup.
   const supabase = useMemo(() => createClient(), []);
 
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -67,12 +76,23 @@ export function MessagesClient() {
   const [sending, setSending] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
+  /**
+   * Stable ref to activeId so inbox-level realtime handler can read the
+   * current value without being re-registered every time activeId changes.
+   */
+  const activeIdRef = useRef(activeId);
+  useEffect(() => {
+    activeIdRef.current = activeId;
+  }, [activeId]);
+
   // -------------------------------------------------------------------------
-  // Load conversations + last-message previews
+  // Load conversations + set up inbox-level realtime
   // -------------------------------------------------------------------------
   useEffect(() => {
     if (authLoading) return;
     if (!user) { setLoadingConvs(false); return; }
+
+    let inboxChannel: ReturnType<typeof supabase.channel> | null = null;
 
     async function load() {
       setLoadingConvs(true);
@@ -118,20 +138,59 @@ export function MessagesClient() {
           peer: peer ?? { id: "", name: "Unknown", avatar_url: null, neighborhood: null },
           lastMessage: last?.content ?? "No messages yet",
           lastAt: last ? timeAgo(last.created_at) : timeAgo(c.created_at),
+          unread: 0,
         };
       });
 
       setConversations(mapped);
-      // Activate first conversation if none selected
       setActiveId((prev) => prev || (mapped[0]?.id ?? ""));
       setLoadingConvs(false);
+
+      // ------------------------------------------------------------------
+      // Inbox-level realtime: catches messages in ALL user conversations.
+      // No filter → receives everything; we filter client-side by convId.
+      // This covers the case where a message arrives in a non-active chat.
+      // ------------------------------------------------------------------
+      const convIdSet = new Set(convIds);
+
+      inboxChannel = supabase
+        .channel("inbox-realtime")
+        .on(
+          "postgres_changes",
+          { event: "INSERT", schema: "public", table: "messages" },
+          (payload) => {
+            const msg = payload.new as Message;
+            if (!convIdSet.has(msg.conversation_id)) return; // not our conversation
+
+            setConversations((prev) => {
+              const isActive = msg.conversation_id === activeIdRef.current;
+              const updated = prev.map((c) => {
+                if (c.id !== msg.conversation_id) return c;
+                return {
+                  ...c,
+                  lastMessage: msg.content,
+                  lastAt: "just now",
+                  // Increment unread only for conversations not currently open
+                  unread: isActive ? c.unread : c.unread + 1,
+                };
+              });
+              // Bubble this conversation to the top of the sidebar
+              return bubbleUp(updated, msg.conversation_id);
+            });
+          },
+        )
+        .subscribe();
     }
 
     load();
+
+    return () => {
+      if (inboxChannel) supabase.removeChannel(inboxChannel);
+    };
   }, [user, authLoading, supabase]);
 
   // -------------------------------------------------------------------------
-  // Load messages for active conversation + realtime subscription
+  // Load messages for active conversation + per-conversation realtime
   // -------------------------------------------------------------------------
   useEffect(() => {
     if (!activeId) return;
@@ -148,8 +207,13 @@ export function MessagesClient() {
         setLoadingMsgs(false);
       });
 
+    /**
+     * Per-conversation channel: finer-grained filter ensures we only process
+     * messages for the active conversation. The inbox channel handles sidebar
+     * updates; this channel handles the message list + dedup.
+     */
     const channel = supabase
-      .channel(`msgs:${activeId}`)
+      .channel(`chat:${activeId}`)
       .on(
         "postgres_changes",
         {
@@ -159,10 +223,15 @@ export function MessagesClient() {
           filter: `conversation_id=eq.${activeId}`,
         },
         (payload) => {
+          const incoming = payload.new as Message;
           setMessages((prev) => {
-            const incoming = payload.new as Message;
             if (prev.some((m) => m.id === incoming.id)) return prev;
             return [...prev, incoming];
+          });
+          // Scroll after state update (the messages useEffect handles most,
+          // but we fire an explicit scroll here for the realtime path)
+          requestAnimationFrame(() => {
+            bottomRef.current?.scrollIntoView({ behavior: "smooth" });
           });
         },
       )
@@ -174,14 +243,28 @@ export function MessagesClient() {
   }, [activeId, supabase]);
 
   // -------------------------------------------------------------------------
-  // Auto-scroll to latest message
+  // Auto-scroll when messages change (covers initial load + sends)
   // -------------------------------------------------------------------------
   useEffect(() => {
+    if (messages.length === 0) return;
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
   // -------------------------------------------------------------------------
-  // Send message
+  // Switch active conversation — clear unread badge
+  // -------------------------------------------------------------------------
+  const handleSelectConversation = useCallback(
+    (id: string) => {
+      setActiveId(id);
+      setConversations((prev) =>
+        prev.map((c) => (c.id === id ? { ...c, unread: 0 } : c)),
+      );
+    },
+    [],
+  );
+
+  // -------------------------------------------------------------------------
+  // Send message (optimistic)
   // -------------------------------------------------------------------------
   const sendMessage = useCallback(async () => {
     if (!input.trim() || !activeId || !user || sending) return;
@@ -196,18 +279,21 @@ export function MessagesClient() {
       .single();
 
     if (!error && data) {
-      // Optimistic dedup: realtime may arrive before or after INSERT response
+      // Optimistic: add to messages list if realtime hasn't delivered it yet
       setMessages((prev) =>
         prev.some((m) => m.id === data.id) ? prev : [...prev, data as Message],
       );
+      // Sidebar preview (also handled by inbox channel, this ensures immediacy)
       setConversations((prev) =>
-        prev.map((c) =>
-          c.id === activeId ? { ...c, lastMessage: text, lastAt: "just now" } : c,
+        bubbleUp(
+          prev.map((c) =>
+            c.id === activeId ? { ...c, lastMessage: text, lastAt: "just now" } : c,
+          ),
+          activeId,
         ),
       );
     } else if (error) {
-      // Restore input so user can retry
-      setInput(text);
+      setInput(text); // restore on failure
     }
 
     setSending(false);
@@ -284,41 +370,67 @@ export function MessagesClient() {
             <p className="px-4 py-6 text-sm text-ink-muted">No conversations yet.</p>
           ) : (
             <ul className="max-h-[40vh] overflow-y-auto lg:max-h-none">
-              {conversations.map((c) => (
-                <li key={c.id}>
-                  <button
-                    type="button"
-                    onClick={() => setActiveId(c.id)}
-                    className={cn(
-                      "flex w-full items-center gap-3 px-4 py-3 text-left transition",
-                      c.id === activeId
-                        ? "bg-brand/10"
-                        : "hover:bg-black/[0.03] dark:hover:bg-white/[0.04]",
-                    )}
+              <AnimatePresence initial={false}>
+                {conversations.map((c) => (
+                  <motion.li
+                    key={c.id}
+                    layout
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.18 }}
                   >
-                    <span className="relative h-11 w-11 shrink-0 overflow-hidden rounded-2xl bg-brand/10">
-                      {c.peer.avatar_url && (
-                        <Image
-                          src={c.peer.avatar_url}
-                          alt=""
-                          fill
-                          className="object-cover"
-                          sizes="44px"
-                        />
+                    <button
+                      type="button"
+                      onClick={() => handleSelectConversation(c.id)}
+                      className={cn(
+                        "flex w-full items-center gap-3 px-4 py-3 text-left transition",
+                        c.id === activeId
+                          ? "bg-brand/10"
+                          : "hover:bg-black/[0.03] dark:hover:bg-white/[0.04]",
                       )}
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-semibold text-ink">
-                        {c.peer.name || "User"}
+                    >
+                      <span className="relative h-11 w-11 shrink-0 overflow-hidden rounded-2xl bg-brand/10">
+                        {c.peer.avatar_url && (
+                          <Image
+                            src={c.peer.avatar_url}
+                            alt=""
+                            fill
+                            className="object-cover"
+                            sizes="44px"
+                          />
+                        )}
+                        {c.unread > 0 && (
+                          <span className="absolute -right-1 -top-1 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-brand px-1 text-[10px] font-bold text-white">
+                            {c.unread > 9 ? "9+" : c.unread}
+                          </span>
+                        )}
                       </span>
-                      <span className="block truncate text-xs text-ink-muted">
-                        {c.lastMessage}
+                      <span className="min-w-0 flex-1">
+                        <span
+                          className={cn(
+                            "block truncate text-sm font-semibold",
+                            c.unread > 0 ? "text-ink" : "text-ink",
+                          )}
+                        >
+                          {c.peer.name || "User"}
+                        </span>
+                        <span
+                          className={cn(
+                            "block truncate text-xs",
+                            c.unread > 0
+                              ? "font-semibold text-ink"
+                              : "text-ink-muted",
+                          )}
+                        >
+                          {c.lastMessage}
+                        </span>
                       </span>
-                    </span>
-                    <span className="shrink-0 text-[10px] text-ink-muted">{c.lastAt}</span>
-                  </button>
-                </li>
-              ))}
+                      <span className="shrink-0 text-[10px] text-ink-muted">{c.lastAt}</span>
+                    </button>
+                  </motion.li>
+                ))}
+              </AnimatePresence>
             </ul>
           )}
         </aside>
@@ -356,6 +468,13 @@ export function MessagesClient() {
                     <p className="text-xs text-ink-muted">{activeConv.peer.neighborhood}</p>
                   )}
                 </div>
+                {/* Realtime indicator */}
+                <div className="ml-auto flex items-center gap-1.5">
+                  <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" />
+                  <span className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+                    Live
+                  </span>
+                </div>
               </div>
 
               {/* Messages */}
@@ -376,8 +495,9 @@ export function MessagesClient() {
                         <motion.div
                           key={m.id}
                           layout
-                          initial={{ opacity: 0, y: 6 }}
-                          animate={{ opacity: 1, y: 0 }}
+                          initial={{ opacity: 0, y: 8, scale: 0.97 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          transition={{ type: "spring", stiffness: 420, damping: 28 }}
                           className={cn("flex", fromMe ? "justify-end" : "justify-start")}
                         >
                           <div
@@ -426,6 +546,7 @@ export function MessagesClient() {
                     }}
                     placeholder="Type a message…"
                     disabled={sending}
+                    autoFocus
                     className="flex-1 rounded-2xl border border-black/[0.08] bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-brand/30 disabled:opacity-50 dark:border-white/10 dark:bg-slate-900"
                   />
                   <button
