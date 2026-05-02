@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getNearbyListings } from "@/lib/listings.server";
 import { HomePageClient } from "@/components/home/HomePageClient";
 
 export const metadata: Metadata = {
@@ -10,6 +11,7 @@ export const metadata: Metadata = {
   },
 };
 
-export default function HomePage() {
-  return <HomePageClient />;
+export default async function HomePage() {
+  const listings = await getNearbyListings();
+  return <HomePageClient listings={listings} />;
 }

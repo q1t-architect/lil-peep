@@ -3,52 +3,33 @@
 import Image from "next/image";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import type { Listing } from "@/lib/data";
 import type { ListingWithOwner } from "@/lib/listings.server";
 import { useLocale } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
-// Universal adapter: extract display fields from either type
-function toCard(l: Listing | ListingWithOwner) {
-  if ("owner_id" in l) {
-    const db = l as ListingWithOwner;
-    return {
-      id: db.id,
-      title: db.title,
-      description: db.description ?? "",
-      category: db.category,
-      images: db.images,
-      neighborhood: db.neighborhood ?? "",
-      status: db.status,
-      priceType: db.price_type,
-      priceEuro: db.price_euro,
-      distanceKm: db.distance_km ?? 0,
-      owner: {
-        name: db.owner?.name ?? "Unknown",
-        avatar: db.owner?.avatar_url ?? "",
-        rating: db.owner?.rating ?? 0,
-        exchanges: db.owner?.exchanges ?? 0,
-        verified: db.owner?.verified ?? false,
-      },
-    };
-  }
-  const mock = l as Listing;
+function toCard(l: ListingWithOwner) {
   return {
-    id: mock.id,
-    title: mock.title,
-    description: mock.description,
-    category: mock.category,
-    images: mock.images,
-    neighborhood: mock.neighborhood,
-    status: mock.status,
-    priceType: mock.priceType,
-    priceEuro: mock.priceEuro,
-    distanceKm: mock.distanceKm,
-    owner: mock.owner,
+    id: l.id,
+    title: l.title,
+    description: l.description ?? "",
+    category: l.category,
+    images: l.images,
+    neighborhood: l.neighborhood ?? "",
+    status: l.status,
+    priceType: l.price_type,
+    priceEuro: l.price_euro,
+    distanceKm: l.distance_km ?? 0,
+    owner: {
+      name: l.owner?.name ?? "Unknown",
+      avatar: l.owner?.avatar_url ?? "",
+      rating: l.owner?.rating ?? 0,
+      exchanges: l.owner?.exchanges ?? 0,
+      verified: l.owner?.verified ?? false,
+    },
   };
 }
 
-export function ListingCard({ listing, index = 0 }: { listing: Listing | ListingWithOwner; index?: number }) {
+export function ListingCard({ listing, index = 0 }: { listing: ListingWithOwner; index?: number }) {
   const { t } = useLocale();
   const c = toCard(listing);
 

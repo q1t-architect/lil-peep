@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { createClient } from "@/lib/supabase/client";
 import { createListing, updateListing, type CreateListingInput } from "@/lib/listings.client";
-import { CATEGORIES, MADRID_NEIGHBORHOODS } from "@/lib/data";
+import { CATEGORIES, MADRID_NEIGHBORHOODS } from "@/lib/constants";
 import { useLocale } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import type { ListingWithOwner } from "@/lib/listings.client";

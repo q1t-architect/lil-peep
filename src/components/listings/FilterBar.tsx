@@ -1,6 +1,6 @@
 "use client";
 
-import { CATEGORIES } from "@/lib/data";
+import { CATEGORIES } from "@/lib/constants";
 import type { FilterState } from "@/lib/listingFilters";
 import { useLocale } from "@/lib/i18n";
 import { cn } from "@/lib/utils";

@@ -2,7 +2,7 @@
 
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useMemo, useState } from "react";
-import type { Listing } from "@/lib/data";
+import type { ListingWithOwner } from "@/lib/listings.server";
 import { cn } from "@/lib/utils";
 
 type Mode = "borrow" | "reserve";
@@ -21,7 +21,7 @@ export function ReservationModal({
   open,
   onClose,
 }: {
-  listing: Listing | null;
+  listing: ListingWithOwner | null;
   open: boolean;
   onClose: () => void;
 }) {
@@ -38,7 +38,7 @@ export function ReservationModal({
 
   const fee = useMemo(() => {
     if (!listing) return 0.05;
-    if (listing.priceType === "free") return 0.05;
+    if (listing.price_type === "free") return 0.05;
     return 0.5;
   }, [listing]);
 
@@ -86,7 +86,7 @@ export function ReservationModal({
               </p>
               <h2 className="mt-1 font-display text-xl font-semibold text-ink">{listing.title}</h2>
               <p className="mt-1 text-sm text-ink-muted">
-                {listing.neighborhood} · symbolic service fee for demo
+                {listing.neighborhood ?? ""} · symbolic service fee for demo
               </p>
             </div>
 
@@ -159,7 +159,7 @@ export function ReservationModal({
                     <span className="font-semibold text-ink">
                       {mode === "borrow" ? "borrow request" : "reservation"}
                     </span>{" "}
-                    with <span className="font-semibold text-ink">{listing.owner.name}</span>.
+                    with <span className="font-semibold text-ink">{(listing.owner?.name ?? "Unknown")}</span>.
                   </p>
                   <button
                     type="button"

@@ -12,22 +12,24 @@ import Map, {
 import type { Expression } from "mapbox-gl";
 import type { FeatureCollection } from "geojson";
 import Link from "next/link";
-import type { Listing } from "@/lib/data";
+import type { ListingWithOwner } from "@/lib/listings.server";
 import { cn } from "@/lib/utils";
 import "mapbox-gl/dist/mapbox-gl.css";
 
-const TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
+const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN!;
 const BRAND = "#2596BE";
 
-function toLngLat(listing: Listing) {
-  return {
-    longitude: -3.7 + (listing.mapX - 0.5) * 0.06,
-    latitude: 40.41 + (listing.mapY - 0.45) * 0.05,
-  };
+/** Extract [lng, lat] from Supabase PostGIS location ({ x: lng, y: lat }) or fall back to Madrid center */
+function toCoords(listing: ListingWithOwner): [number, number] {
+  if (listing.location && typeof listing.location === "object") {
+    const loc = listing.location as { x?: number; y?: number };
+    if (loc.x != null && loc.y != null) return [loc.x, loc.y];
+  }
+  return [-3.7038, 40.4168];
 }
 
 type Props = {
-  listings: Listing[];
+  listings: ListingWithOwner[];
   selectedId: string | null;
   onSelect: (id: string | null) => void;
   className?: string;
@@ -63,21 +65,21 @@ export function InteractiveMap({ listings, selectedId, onSelect, className }: Pr
     () => ({
       type: "FeatureCollection",
       features: listings.map((listing) => {
-        const { longitude, latitude } = toLngLat(listing);
+        const [lng, lat] = toCoords(listing);
         return {
           type: "Feature",
           properties: {
             id: listing.id,
             title: listing.title,
             neighborhood: listing.neighborhood,
-            distanceKm: listing.distanceKm,
-            priceType: listing.priceType,
-            priceEuro: listing.priceEuro ?? null,
+            distanceKm: listing.distance_km,
+            priceType: listing.price_type,
+            priceEuro: listing.price_euro ?? null,
             status: listing.status,
             description: listing.description,
-            ownerName: listing.owner.name,
+            ownerName: listing.owner?.name,
           },
-          geometry: { type: "Point", coordinates: [longitude, latitude] },
+          geometry: { type: "Point", coordinates: [lng, lat] },
         };
       }),
     }),
@@ -91,7 +93,12 @@ export function InteractiveMap({ listings, selectedId, onSelect, className }: Pr
 
   // Keep popup coords synced to selected listing
   useEffect(() => {
-    setPopupCoords(selectedListing ? toLngLat(selectedListing) : null);
+    if (selectedListing) {
+      const [lng, lat] = toCoords(selectedListing);
+      setPopupCoords({ longitude: lng, latitude: lat });
+    } else {
+      setPopupCoords(null);
+    }
   }, [selectedListing]);
 
   const onMapClick = useCallback(
@@ -162,7 +169,7 @@ export function InteractiveMap({ listings, selectedId, onSelect, className }: Pr
         ref={mapRef}
         initialViewState={{ latitude: 40.4168, longitude: -3.7038, zoom: 13 }}
         mapStyle={mapStyle}
-        mapboxAccessToken={TOKEN}
+        mapboxAccessToken={MAPBOX_TOKEN}
         style={{ width: "100%", height: "100%" }}
         interactiveLayerIds={["clusters", "unclustered-point"]}
         onClick={onMapClick}
@@ -247,7 +254,7 @@ export function InteractiveMap({ listings, selectedId, onSelect, className }: Pr
           >
             <div className="glass glass-border rounded-2xl p-3 text-left shadow-glass-lg w-[240px]">
               <p className="text-[10px] font-semibold uppercase tracking-wider text-brand">
-                {selectedListing.distanceKm.toFixed(1)} km · {selectedListing.neighborhood}
+                {(selectedListing.distance_km ?? 0).toFixed(1)} km · {selectedListing.neighborhood}
               </p>
               <p className="mt-1 line-clamp-2 font-display text-sm font-semibold text-ink">
                 {selectedListing.title}
@@ -257,19 +264,19 @@ export function InteractiveMap({ listings, selectedId, onSelect, className }: Pr
               </p>
               <div className="mt-2 flex items-center justify-between gap-2">
                 <span className="text-xs font-medium text-ink-muted">
-                  {selectedListing.owner.name}
+                  {selectedListing.owner?.name ?? "Unknown"}
                 </span>
                 <span
                   className={cn(
                     "rounded-full px-2 py-0.5 text-[10px] font-semibold",
-                    selectedListing.priceType === "free"
+                    selectedListing.price_type === "free"
                       ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300"
                       : "bg-brand/15 text-brand-dim dark:text-brand-glow",
                   )}
                 >
-                  {selectedListing.priceType === "free"
+                  {selectedListing.price_type === "free"
                     ? "Free"
-                    : `€${selectedListing.priceEuro?.toFixed(2)}`}
+                    : `€${selectedListing.price_euro?.toFixed(2)}`}
                 </span>
               </div>
               <Link

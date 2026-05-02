@@ -5,24 +5,32 @@ import { useMemo, useState } from "react";
 import { InteractiveMap } from "@/components/map/InteractiveMap";
 import { FilterBar } from "@/components/listings/FilterBar";
 import { ListingCard } from "@/components/listings/ListingCard";
-import { MOCK_LISTINGS, WISHLIST_TAGS, type Listing } from "@/lib/data";
+import { WISHLIST_TAGS } from "@/lib/constants";
 import { defaultFilterState, filterListings, type FilterState } from "@/lib/listingFilters";
+import type { ListingWithOwner } from "@/lib/listings.server";
 import { useLocale } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
-export function HomePageClient() {
+type Props = {
+  listings: ListingWithOwner[];
+};
+
+export function HomePageClient({ listings }: Props) {
   const [filters, setFilters] = useState<FilterState>(defaultFilterState);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const { t } = useLocale();
 
-  const filtered = useMemo(() => filterListings(MOCK_LISTINGS, filters) as Listing[], [filters]);
+  const filtered = useMemo(
+    () => filterListings(listings, filters),
+    [listings, filters],
+  );
 
   const mapListings = useMemo(() => {
     if (!selectedId) return filtered;
-    const sel = MOCK_LISTINGS.find((l) => l.id === selectedId);
+    const sel = listings.find((l) => l.id === selectedId);
     if (sel && !filtered.some((l) => l.id === sel.id)) return [...filtered, sel];
     return filtered;
-  }, [filtered, selectedId]);
+  }, [filtered, listings, selectedId]);
 
   return (
     <div className="mx-auto max-w-7xl space-y-8 px-4 py-8 sm:px-6 lg:px-8">
