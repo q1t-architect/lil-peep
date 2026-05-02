@@ -274,6 +274,13 @@ export function AppShell({ children }: { children: ReactNode }) {
             >
               {t("nav.trust")}
             </Link>
+            <Link
+              href={user ? "/listing/new" : "/login"}
+              className="inline-flex items-center gap-1.5 rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white shadow-brand-soft-sm transition hover:bg-brand-dim focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="h-4 w-4" aria-hidden><path strokeLinecap="round" d="M12 5v14M5 12h14" /></svg>
+              Post item
+            </Link>
           </nav>
           <div className="flex shrink-0 items-center gap-2 sm:gap-3">
             <span className="hidden rounded-full border border-brand/20 bg-brand/5 px-3 py-1.5 text-[11px] font-medium text-brand-dim dark:border-brand/30 dark:bg-brand/10 dark:text-brand-glow xl:inline">
@@ -301,6 +308,16 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
       </header>
       <div className="flex-1">{children}</div>
+      {/* Mobile FAB — Post Item */}
+      <Link
+        href={user ? "/listing/new" : "/login"}
+        className="fixed bottom-6 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-brand text-white shadow-glass-lg ring-2 ring-white/50 transition hover:bg-brand-dim hover:scale-105 active:scale-95 lg:hidden dark:ring-white/20"
+        aria-label="Post item"
+      >
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="h-6 w-6">
+          <path strokeLinecap="round" d="M12 5v14M5 12h14" />
+        </svg>
+      </Link>
       <footer className="border-t border-brand/15 bg-surface-elevated/90 py-8 text-center text-xs leading-relaxed text-ink-muted dark:border-brand/20 dark:bg-slate-950/60">
         <p className="mx-auto max-w-2xl px-4">
           {t("footer.prototype")}{" "}

@@ -317,7 +317,7 @@ export function MessagesClient() {
         </header>
         <p className="text-sm text-ink-muted">
           Please{" "}
-          <a href="/auth/sign-in" className="text-brand underline underline-offset-2">
+          <a href="/login" className="text-brand underline underline-offset-2">
             sign in
           </a>{" "}
           to view your messages.

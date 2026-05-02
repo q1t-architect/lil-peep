@@ -11,7 +11,7 @@ export default async function EditListingPage({ params }: Props) {
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/signin");
+  if (!user) redirect("/login");
 
   const listing = await getListing(id);
   if (!listing) notFound();

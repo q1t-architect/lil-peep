@@ -42,6 +42,33 @@ export function InteractiveMap({ listings, selectedId, onSelect, className }: Pr
     longitude: number;
     latitude: number;
   } | null>(null);
+  const [mapError, setMapError] = useState(false);
+
+  // Detect map load errors (401, network, etc.)
+  useEffect(() => {
+    const map = mapRef.current?.getMap();
+    if (!map) return;
+
+    const onError = (e: { error?: { status?: number; message?: string } }) => {
+      console.warn("Mapbox error:", e.error?.message || e);
+      setMapError(true);
+    };
+
+    map.on("error", onError);
+
+    // Fallback if map tiles don't load within 5s (401, blocked, etc.)
+    const timer = setTimeout(() => {
+      const canvas = map.getCanvas();
+      if (canvas && !map.loaded()) {
+        setMapError(true);
+      }
+    }, 5000);
+
+    return () => {
+      map.off("error", onError);
+      clearTimeout(timer);
+    };
+  }, []);
 
   // Sync dark/light map style with document theme
   useEffect(() => {
@@ -164,6 +191,26 @@ export function InteractiveMap({ listings, selectedId, onSelect, className }: Pr
         .kinetic-popup .mapboxgl-popup-tip { display: none; }
         .kinetic-popup .mapboxgl-popup-close-button { display: none; }
       `}</style>
+
+      {/* Fallback overlay when map fails to load */}
+      {mapError && (
+        <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-slate-900/80 p-6 text-center backdrop-blur-sm">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="h-10 w-10 text-brand" aria-hidden>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+          </svg>
+          <p className="font-display text-lg font-semibold text-white">Map unavailable</p>
+          <p className="max-w-xs text-sm text-slate-300">
+            Couldn&apos;t load the map. Listings are shown below in list view.
+          </p>
+          <button
+            type="button"
+            onClick={() => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })}
+            className="mt-1 rounded-full bg-brand px-5 py-2 text-sm font-semibold text-white shadow-brand-soft-sm transition hover:bg-brand-dim"
+          >
+            View listings
+          </button>
+        </div>
+      )}
 
       <Map
         ref={mapRef}

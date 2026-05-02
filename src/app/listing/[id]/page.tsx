@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
 import { getListing } from "@/lib/listings.server";
 import { ListingDetailClient } from "@/components/listing/ListingDetailClient";
 import type { ListingWithOwner } from "@/lib/listings.server";
@@ -28,8 +29,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function ListingPage({ params }: Props) {
   const { id } = await params;
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
   const listing = await getListing(id);
   if (!listing) notFound();
 
-  return <ListingDetailClient listing={listing} />;
+  return <ListingDetailClient listing={listing} currentUserId={user?.id} />;
 }

@@ -6,7 +6,7 @@ export default async function NewListingPage() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
-  if (!user) redirect("/signin");
+  if (!user) redirect("/login");
 
   return <ListingFormClient userId={user.id} />;
 }
