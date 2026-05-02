@@ -16,13 +16,21 @@ export default async function ProfilePage() {
     .eq("id", user.id)
     .single();
 
-  // Fetch user's real listings
   const { data: listings } = await supabase
     .from("listings")
     .select("id, title, category, status, price_type, price_euro, images, created_at")
     .eq("owner_id", user.id)
     .order("created_at", { ascending: false })
     .limit(10);
+
+  const { data: reviews } = await supabase
+    .from("reviews")
+    .select(
+      `id, listing_id, reviewer_id, reviewee_id, rating, text, created_at,
+       reviewer:profiles!reviews_reviewer_id_fkey(name, avatar_url)`
+    )
+    .eq("reviewee_id", user.id)
+    .order("created_at", { ascending: false });
 
   return (
     <ProfileViewClient
@@ -39,6 +47,8 @@ export default async function ProfilePage() {
       }
       email={user.email ?? ""}
       listings={listings ?? []}
+      reviews={(reviews ?? []) as unknown as import("@/lib/reviews.client").ReviewRow[]}
+      currentUserId={user.id}
     />
   );
 }

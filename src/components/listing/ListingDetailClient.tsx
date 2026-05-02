@@ -7,6 +7,7 @@ import { motion } from "framer-motion";
 import { useLocale } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import type { ListingWithOwner } from "@/lib/listings.server";
+import { ReservationModal } from "@/components/reservation/ReservationModal";
 
 interface Props {
   listing: ListingWithOwner;
@@ -18,6 +19,7 @@ export function ListingDetailClient({ listing, currentUserId }: Props) {
   const [photo, setPhoto] = useState(0);
   const [toast, setToast] = useState<string | null>(null);
   const [status, setStatus] = useState(listing.status);
+  const [modalOpen, setModalOpen] = useState(false);
 
   const isOwner = currentUserId && currentUserId === listing.owner_id;
 
@@ -163,7 +165,7 @@ export function ListingDetailClient({ listing, currentUserId }: Props) {
                 whileHover={{ scale: 1.01 }}
                 whileTap={{ scale: 0.99 }}
                 disabled={status === "reserved"}
-                onClick={() => showToast("Reservation request sent (demo).")}
+                onClick={() => setModalOpen(true)}
                 className={cn(
                   "flex-1 rounded-2xl bg-brand py-4 text-center text-sm font-semibold text-white shadow-brand-soft transition",
                   "hover:bg-brand-dim disabled:cursor-not-allowed disabled:opacity-50",
@@ -203,6 +205,13 @@ export function ListingDetailClient({ listing, currentUserId }: Props) {
           {toast}
         </div>
       )}
+
+      <ReservationModal
+        listing={listing}
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        onSuccess={() => setStatus("reserved")}
+      />
     </div>
   );
 }

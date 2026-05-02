@@ -3,37 +3,35 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { useEffect, useMemo, useState } from "react";
 import type { ListingWithOwner } from "@/lib/listings.server";
+import { createReservation, type ReservationMode } from "@/lib/reservations.client";
 import { cn } from "@/lib/utils";
 
-type Mode = "borrow" | "reserve";
-
 type Step = 0 | 1 | 2 | 3;
-
-function randomCode() {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  let s = "NLB-";
-  for (let i = 0; i < 4; i++) s += chars[Math.floor(Math.random() * chars.length)];
-  return s;
-}
 
 export function ReservationModal({
   listing,
   open,
   onClose,
+  onSuccess,
 }: {
   listing: ListingWithOwner | null;
   open: boolean;
   onClose: () => void;
+  onSuccess?: () => void;
 }) {
   const [step, setStep] = useState<Step>(0);
-  const [mode, setMode] = useState<Mode>("borrow");
+  const [mode, setMode] = useState<ReservationMode>("borrow");
   const [code, setCode] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
     setStep(0);
     setMode("borrow");
     setCode("");
+    setError(null);
+    setSubmitting(false);
   }, [open, listing?.id]);
 
   const fee = useMemo(() => {
@@ -42,16 +40,31 @@ export function ReservationModal({
     return 0.5;
   }, [listing]);
 
-  const reset = () => {
+  const handleClose = () => {
     setStep(0);
     setMode("borrow");
     setCode("");
-  };
-
-  const handleClose = () => {
-    reset();
+    setError(null);
+    setSubmitting(false);
     onClose();
   };
+
+  async function handleConfirm() {
+    if (!listing) return;
+    setSubmitting(true);
+    setError(null);
+
+    try {
+      const result = await createReservation(listing.id, mode);
+      setCode(result.pickup_code);
+      setStep(3);
+      onSuccess?.();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong");
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   if (!listing) return null;
 
@@ -86,7 +99,7 @@ export function ReservationModal({
               </p>
               <h2 className="mt-1 font-display text-xl font-semibold text-ink">{listing.title}</h2>
               <p className="mt-1 text-sm text-ink-muted">
-                {listing.neighborhood ?? ""} · symbolic service fee for demo
+                {listing.neighborhood ?? ""} · symbolic service fee
               </p>
             </div>
 
@@ -132,8 +145,8 @@ export function ReservationModal({
                   </div>
                   <ul className="space-y-2 text-sm text-ink-muted">
                     <li className="flex gap-2">
-                      <span className="text-brand">✓</span> Owner sees your {mode === "borrow" ? "borrow" : "reservation"}{" "}
-                      request instantly
+                      <span className="text-brand">✓</span> Owner sees your{" "}
+                      {mode === "borrow" ? "borrow" : "reservation"} request instantly
                     </li>
                     <li className="flex gap-2">
                       <span className="text-brand">✓</span> Chat opens to arrange a safe public handoff
@@ -159,19 +172,26 @@ export function ReservationModal({
                     <span className="font-semibold text-ink">
                       {mode === "borrow" ? "borrow request" : "reservation"}
                     </span>{" "}
-                    with <span className="font-semibold text-ink">{(listing.owner?.name ?? "Unknown")}</span>.
+                    with <span className="font-semibold text-ink">{listing.owner?.name ?? "Unknown"}</span>.
                   </p>
+                  {error && (
+                    <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-900/30 dark:text-red-400">
+                      {error}
+                    </p>
+                  )}
                   <button
                     type="button"
-                    className="w-full rounded-2xl bg-brand py-3.5 text-sm font-semibold text-white shadow-brand-soft transition hover:bg-brand-dim"
-                    onClick={() => {
-                      setCode(randomCode());
-                      setStep(3);
-                    }}
+                    disabled={submitting}
+                    className="w-full rounded-2xl bg-brand py-3.5 text-sm font-semibold text-white shadow-brand-soft transition hover:bg-brand-dim disabled:opacity-60"
+                    onClick={handleConfirm}
                   >
-                    Confirm · €{fee.toFixed(2)}
+                    {submitting ? "Processing…" : `Confirm · €${fee.toFixed(2)}`}
                   </button>
-                  <button type="button" className="w-full text-sm text-ink-muted underline-offset-4 hover:underline" onClick={() => setStep(1)}>
+                  <button
+                    type="button"
+                    className="w-full text-sm text-ink-muted underline-offset-4 hover:underline"
+                    onClick={() => setStep(1)}
+                  >
                     Back
                   </button>
                 </div>
@@ -185,8 +205,7 @@ export function ReservationModal({
                   <div>
                     <p className="font-display text-2xl font-semibold text-ink">You&apos;re set on Neighborly</p>
                     <p className="mt-2 text-sm text-ink-muted">
-                      Show this pickup verification code when you meet. Owner has a matching token in their app
-                      (demo).
+                      Show this pickup verification code when you meet. Owner has a matching token in their notifications.
                     </p>
                   </div>
                   <div className="rounded-2xl border border-dashed border-brand/35 bg-brand/5 px-4 py-6 dark:bg-brand/10">

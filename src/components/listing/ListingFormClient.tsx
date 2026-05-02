@@ -10,6 +10,8 @@ import { createListing, updateListing, type CreateListingInput } from "@/lib/lis
 import { CATEGORIES, MADRID_NEIGHBORHOODS } from "@/lib/constants";
 import { useLocale } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
+import { checkRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
+import { validateListing } from "@/lib/moderation";
 import type { ListingWithOwner } from "@/lib/listings.client";
 
 // ---------------------------------------------------------------------------
@@ -179,6 +181,28 @@ export function ListingFormClient({ userId, editing }: Props) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
+
+    // Rate limit: listing creation
+    if (!isEdit) {
+      const { allowed } = checkRateLimit(
+        `listingCreate:${userId}`,
+        RATE_LIMITS.listingCreate.limit,
+        RATE_LIMITS.listingCreate.windowMs,
+      );
+      if (!allowed) {
+        setToast("You’ve created too many listings recently. Please try again later.");
+        return;
+      }
+    }
+
+    // Content moderation
+    const mod = validateListing(title, description);
+    if (!mod.ok) {
+      setToast(`Content blocked: ${mod.reason}`);
+      setErrors({ ...errors, moderation: mod.reason });
+      return;
+    }
+
     setSubmitting(true);
 
     try {

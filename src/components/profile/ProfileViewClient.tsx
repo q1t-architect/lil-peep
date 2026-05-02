@@ -3,8 +3,12 @@
 import Image from "next/image";
 import Link from "next/link";
 import { motion } from "framer-motion";
+import { useState } from "react";
 import { useLocale } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
+import { ReviewList } from "@/components/reviews/ReviewList";
+import { ReviewForm } from "@/components/reviews/ReviewForm";
+import type { ReviewRow } from "@/lib/reviews.client";
 
 type Profile = {
   id: string;
@@ -31,12 +35,21 @@ export function ProfileViewClient({
   profile,
   email,
   listings,
+  reviews = [],
+  currentUserId,
+  canReview,
+  reviewListingId,
 }: {
   profile: Profile;
   email: string;
   listings: Listing[];
+  reviews?: ReviewRow[];
+  currentUserId?: string;
+  canReview?: boolean;
+  reviewListingId?: string;
 }) {
   const { t } = useLocale();
+  const [reviewList, setReviewList] = useState(reviews);
   const avatarUrl = profile.avatar_url;
   const initials = profile.name
     .trim()
@@ -44,6 +57,8 @@ export function ProfileViewClient({
     .slice(0, 2)
     .map((w) => w[0]?.toUpperCase() ?? "")
     .join("");
+
+  const isOwnProfile = currentUserId === profile.id;
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
@@ -143,9 +158,22 @@ export function ProfileViewClient({
         )}
       </section>
 
-      {/* Sidebar section */}
+      {/* Reviews + Sidebar */}
       <section className="mt-10 grid gap-8 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-        <div>{/* Placeholder for future reviews from Supabase */}</div>
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h2 className="font-display text-lg font-semibold text-ink">Reviews</h2>
+            <span className="text-xs text-ink-muted">{reviewList.length} total</span>
+          </div>
+          <ReviewList reviews={reviewList} />
+          {!isOwnProfile && canReview && reviewListingId && (
+            <ReviewForm
+              listingId={reviewListingId}
+              revieweeId={profile.id}
+              onSuccess={(r) => setReviewList((prev) => [r, ...prev])}
+            />
+          )}
+        </div>
         <aside className="space-y-6">
           <div className="rounded-2xl border border-black/[0.06] bg-white/60 p-5 dark:border-white/10 dark:bg-slate-900/50">
             <h3 className="text-sm font-semibold text-ink">{t("profile.communityStandards")}</h3>

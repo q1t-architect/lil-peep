@@ -6,6 +6,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
+import { checkRateLimit, RATE_LIMITS } from "@/lib/rate-limit";
+import { validateMessage } from "@/lib/moderation";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -269,6 +271,32 @@ export function MessagesClient() {
   const sendMessage = useCallback(async () => {
     if (!input.trim() || !activeId || !user || sending) return;
     const text = input.trim();
+
+    // Rate limit
+    const { allowed } = checkRateLimit(
+      `messageSend:${user.id}`,
+      RATE_LIMITS.messageSend.limit,
+      RATE_LIMITS.messageSend.windowMs,
+    );
+    if (!allowed) {
+      alert("You're sending messages too quickly. Please slow down.");
+      return;
+    }
+
+    // Content moderation + PII warning
+    const mod = validateMessage(text);
+    if (!mod.ok) {
+      alert(`Message blocked: ${mod.reason}`);
+      return;
+    }
+    if (mod.pii.length > 0) {
+      const ok = confirm(
+        `Warning: your message may contain ${mod.pii.join(", ")}. ` +
+        "For your safety, keep communication on-platform. Send anyway?"
+      );
+      if (!ok) return;
+    }
+
     setInput("");
     setSending(true);
 
